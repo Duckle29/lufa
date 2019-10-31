@@ -92,6 +92,11 @@ static uint16_t StartAddr = 0x0000;
  */
 static uint16_t EndAddr = 0x0000;
 
+/** Magic key allowing watchdog reset to bootloader from the application. If BOOTRST is programmed, the application can
+ *  set this to the value \ref MAGIC_LOAD_KEY, which will ensure the bootloader isn't skipped.
+ */
+uint16_t MagicLoadKey __attribute__((section(".noinit,\"aw\",@nobits;")));
+
 /** Magic lock for forced application start. If the HWBE fuse is programmed and BOOTRST is unprogrammed, the bootloader
  *  will start if the /HWB line of the AVR is held low and the system is reset. However, if the /HWB line is still held
  *  low when the application attempts to start via a watchdog reset, the bootloader will re-start. If set to the value
@@ -135,19 +140,27 @@ void Application_Jump_Check(void)
 		/* Check if the device's BOOTRST fuse is set */
 		if (!(BootloaderAPI_ReadFuse(GET_HIGH_FUSE_BITS) & ~FUSE_BOOTRST))
 		{
-			/* If the reset source was not an external reset or the key is correct, clear it and jump to the application */
-			//if (!(MCUSR & (1 << EXTRF)) || (MagicBootKey == MAGIC_BOOT_KEY))
-			//  JumpToApplication = true;
+			/* If the reset source was not an external reset jump to the application */
+			if (!(MCUSR & (1 << EXTRF)))
+				JumpToApplication = true;
+			
+			/* If the reset source was a watchdog reset, and the MagicLoadKey is set, don't jump to the application*/
+			if ((MCUSR & (1 << WDRF)) && (MagicLoadKey == MAGIC_LOAD_KEY))
+				JumpToApplication = false;
+			
+			/* If the boot key is set, force the jump to the application */
+			if (MagicBootKey == MAGIC_BOOT_KEY)
+				JumpToApplication = true;
 
-			/* Clear reset source */
-			MCUSR &= ~(1 << EXTRF);
+			/* Clear reset sources */
+			MCUSR &= ~((1 << EXTRF) && (1 << WDRF));
 		}
 		else
 		{
 			/* If the reset source was the bootloader and the key is correct, clear it and jump to the application;
 			 * this can happen in the HWBE fuse is set, and the HBE pin is low during the watchdog reset */
-			//if ((MCUSR & (1 << WDRF)) && (MagicBootKey == MAGIC_BOOT_KEY))
-			//	JumpToApplication = true;
+			if ((MCUSR & (1 << WDRF)) && (MagicBootKey == MAGIC_BOOT_KEY))
+				JumpToApplication = true;
 
 			/* Clear reset source */
 			MCUSR &= ~(1 << WDRF);

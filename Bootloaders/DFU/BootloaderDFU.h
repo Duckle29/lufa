@@ -67,6 +67,9 @@
 		/** Minor bootloader version number. */
 		#define BOOTLOADER_VERSION_REV   0
 
+		/** Magic bootloader key to ensure bootloader isn't skipped. */
+		#define MAGIC_LOAD_KEY           0xAC42
+
 		/** Magic bootloader key to unlock forced application start mode. */
 		#define MAGIC_BOOT_KEY           0xDC42
 
