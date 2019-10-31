@@ -140,17 +140,38 @@ void Application_Jump_Check(void)
 		/* Check if the device's BOOTRST fuse is set */
 		if (!(BootloaderAPI_ReadFuse(GET_HIGH_FUSE_BITS) & ~FUSE_BOOTRST))
 		{
+            DDRC |= (1 << 6);
+            PORTC |= (1 << 6);
+            _delay_us(10);
+            PORTC &= ~(1 << 6);
+            for(uint8_t i=0; i<16; i++)
+            {
+                if((MagicLoadKey >> i) & 1)
+                {
+                PORTC |= (1 << 6);
+                PORTC &= ~(1 << 6);}
+                _delay_us(5);
+            }
 			/* If the reset source was not an external reset jump to the application */
 			if (!(MCUSR & (1 << EXTRF)))
+            {
 				JumpToApplication = true;
-			
+            }
+
 			/* If the reset source was a watchdog reset, and the MagicLoadKey is set, don't jump to the application*/
 			if ((MCUSR & (1 << WDRF)) && (MagicLoadKey == MAGIC_LOAD_KEY))
-				JumpToApplication = false;
-			
+            {
+                JumpToApplication = false;
+            }
+
 			/* If the boot key is set, force the jump to the application */
 			if (MagicBootKey == MAGIC_BOOT_KEY)
+            {
 				JumpToApplication = true;
+            }
+
+            PORTC &= ~(1 << 6);
+            DDRC &= ~(1 << 6);
 
 			/* Clear reset sources */
 			MCUSR &= ~((1 << EXTRF) && (1 << WDRF));
@@ -159,8 +180,8 @@ void Application_Jump_Check(void)
 		{
 			/* If the reset source was the bootloader and the key is correct, clear it and jump to the application;
 			 * this can happen in the HWBE fuse is set, and the HBE pin is low during the watchdog reset */
-			if ((MCUSR & (1 << WDRF)) && (MagicBootKey == MAGIC_BOOT_KEY))
-				JumpToApplication = true;
+			//if ((MCUSR & (1 << WDRF)) && (MagicBootKey == MAGIC_BOOT_KEY))
+			//	JumpToApplication = true;
 
 			/* Clear reset source */
 			MCUSR &= ~(1 << WDRF);
@@ -263,7 +284,7 @@ static void SetupHardware(void)
 	TIMSK1 = (1 << TOIE1);
 	TCCR1B = ((1 << CS11) | (1 << CS10));
 
-}	
+}
 
 /** Resets all configured hardware required for the bootloader back to their original states. */
 static void ResetHardware(void)
